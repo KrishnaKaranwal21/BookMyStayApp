@@ -1,4 +1,4 @@
-import java.util.HashMap;
+import java.util.*;
 
 public class BookMyStayApp {
 
@@ -12,32 +12,15 @@ public class BookMyStayApp {
             this.size = size;
             this.price = price;
         }
-
-        void display(String type, int available) {
-            System.out.println(type + " Room:");
-            System.out.println("Beds: " + beds);
-            System.out.println("Size: " + size + " sqft");
-            System.out.println("Price per night: " + price);
-            System.out.println("Available: " + available);
-            System.out.println();
-        }
     }
 
-    static class SingleRoom extends Room {
-        SingleRoom() {
-            super(1, 250, 1500.0);
-        }
-    }
+    static class Reservation {
+        String guestName;
+        String roomType;
 
-    static class DoubleRoom extends Room {
-        DoubleRoom() {
-            super(2, 400, 2500.0);
-        }
-    }
-
-    static class SuiteRoom extends Room {
-        SuiteRoom() {
-            super(3, 750, 5000.0);
+        Reservation(String guestName, String roomType) {
+            this.guestName = guestName;
+            this.roomType = roomType;
         }
     }
 
@@ -54,29 +37,74 @@ public class BookMyStayApp {
         int getAvailability(String roomType) {
             return inventory.getOrDefault(roomType, 0);
         }
+
+        void decrement(String roomType) {
+            inventory.put(roomType, inventory.get(roomType) - 1);
+        }
+    }
+
+    static class BookingQueue {
+
+        Queue<Reservation> queue = new LinkedList<>();
+
+        void addRequest(Reservation r) {
+            queue.offer(r);
+        }
+
+        Reservation getNext() {
+            return queue.poll();
+        }
+
+        boolean hasRequests() {
+            return !queue.isEmpty();
+        }
+    }
+
+    static class RoomAllocationService {
+
+        HashMap<String, Set<String>> allocatedRooms = new HashMap<>();
+        Set<String> usedRoomIds = new HashSet<>();
+
+        void allocate(Reservation r, RoomInventory inventory) {
+
+            if (inventory.getAvailability(r.roomType) <= 0) {
+                System.out.println("No rooms available for " + r.roomType);
+                return;
+            }
+
+            String roomId;
+            do {
+                roomId = r.roomType.substring(0, 1).toUpperCase() + (100 + new Random().nextInt(900));
+            } while (usedRoomIds.contains(roomId));
+
+            usedRoomIds.add(roomId);
+
+            allocatedRooms.putIfAbsent(r.roomType, new HashSet<>());
+            allocatedRooms.get(r.roomType).add(roomId);
+
+            inventory.decrement(r.roomType);
+
+            System.out.println("Reservation Confirmed");
+            System.out.println("Guest: " + r.guestName);
+            System.out.println("Room Type: " + r.roomType);
+            System.out.println("Room ID: " + roomId);
+            System.out.println();
+        }
     }
 
     public static void main(String[] args) {
 
         RoomInventory inventory = new RoomInventory();
+        BookingQueue queue = new BookingQueue();
+        RoomAllocationService service = new RoomAllocationService();
 
-        Room single = new SingleRoom();
-        Room doubleRoom = new DoubleRoom();
-        Room suite = new SuiteRoom();
+        queue.addRequest(new Reservation("Alice", "Single"));
+        queue.addRequest(new Reservation("Bob", "Double"));
+        queue.addRequest(new Reservation("Charlie", "Suite"));
 
-        System.out.println("Available Rooms");
-        System.out.println();
-
-        if (inventory.getAvailability("Single") > 0) {
-            single.display("Single", inventory.getAvailability("Single"));
-        }
-
-        if (inventory.getAvailability("Double") > 0) {
-            doubleRoom.display("Double", inventory.getAvailability("Double"));
-        }
-
-        if (inventory.getAvailability("Suite") > 0) {
-            suite.display("Suite", inventory.getAvailability("Suite"));
+        while (queue.hasRequests()) {
+            Reservation r = queue.getNext();
+            service.allocate(r, inventory);
         }
     }
 }
